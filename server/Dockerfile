@@ -34,7 +34,7 @@ RUN pip3 install -r requirements.txt
 
 COPY ./ /app
 
-ENV IPT_CONNECTION_STRING='mysql+pymysql://root:password@localhost/ipt_local'
+ENV IPT_CONNECTION_STRING='mysql+pymysql://root:password@ipt_local_db/ipt_local'
 
 ENV Twilio_Account_SID='${Twilio_Account_SID}'
 
