@@ -84,7 +84,7 @@ def image_in_database(url,threshold):
                     'image_in_db':1,
                     'ssim_score':score,
                     'date_posted':image.timestamp,
-                    'body': f'Image sa gen {score*100}% chanse li te poste le {image.timestamp}'
+                    'body': 'Image sa gen {0}% chanse li te poste le {1}'.format(score*100,image.timestamp)
                 }
 
     return {
