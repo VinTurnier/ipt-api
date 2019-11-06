@@ -18,7 +18,7 @@ def whatsapp():
     event = {
         "to": request.form.get('From'),
         "url": request.form.get('MediaUrl0'),
-        "threshold":0.75
+        "threshold":0.5
     }
     print(request.form)
     
