@@ -48,7 +48,6 @@ def sift_comparison(imageA,imageB):
     for m, n in matches:
         if m.distance < ratio*n.distance:
             good_points.append(m)
-            print(len(good_points))
     
     number_keypoints = 0
     if len(kp_1) <= len(kp_2):
@@ -60,6 +59,32 @@ def sift_comparison(imageA,imageB):
 
     return result
 
+def orb_comparison(imageA,imageB):
+    orb = cv2.ORB_create()
+    kp_1, des1 = orb.detectAndCompute(imageA, None)
+    kp_2, des2 = orb.detectAndCompute(imageB, None)
+   
+    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+    matches = bf.match(des1, des2)
+    matches = sorted(matches, key = lambda x: x.distance)
+
+    good = []
+    ratio = 0.75
+    for m in matches:
+        if m.distance < ratio:
+            good.append([m])
+    
+    number_keypoints = 0
+
+    if len(kp_1) <= len(kp_2):
+        number_keypoints = len(kp_1)
+    else:
+        number_keypoints = len(kp_2)
+
+    result = len(matches) / number_keypoints
+
+    return result
+
 def select_algo(imageA,imageB):
     if imageA is None or imageB is None:
         return 0
@@ -67,7 +92,7 @@ def select_algo(imageA,imageB):
     if imageA.shape == imageB.shape:
         return ssim_comparison(imageA,imageB)
     else:
-        return sift_comparison(imageA,imageB)
+        return orb_comparison(imageA,imageB)
 
 def image_in_database(url,threshold):
     images = session.query(Image).all()
@@ -98,3 +123,9 @@ def lambda_handler(event,context):
     threshold = event.get('threshold')
     result = image_in_database(image_url,threshold)
     return result
+
+
+if __name__=="__main__":
+    imageA = url_to_image('https://api.twilio.com/2010-04-01/Accounts/ACfcd00e1e9a29eab742a84b432485fe39/Messages/MM135aec9a461670d3e45aa9e7e8f8550d/Media/MEfe4c23bdee6b45c6cf36827cb345fd99')
+    imageB = url_to_image('https://api.twilio.com/2010-04-01/Accounts/ACfcd00e1e9a29eab742a84b432485fe39/Messages/MM7194f3f4c29ca71cd6fa005f8afa976f/Media/MEdb0e5d2a44745462dd7125c7e5e60289')
+    print(sift_comparison(imageA,imageB))

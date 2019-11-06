@@ -18,8 +18,9 @@ def whatsapp():
     event = {
         "to": request.form.get('From'),
         "url": request.form.get('MediaUrl0'),
-        "threshold":0.95
+        "threshold":0.75
     }
+    print(request.form)
     
     compare_status = compareImages.lambda_handler(event,{})
     if compare_status['image_in_db'] == 0:

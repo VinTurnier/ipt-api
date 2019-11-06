@@ -7,7 +7,9 @@ auth_token = os.environ.get('Twilio_Auth_Token')
 
 client = Client(account_sid,auth_token)
 
+
 def create_message(to,body):
+    print('sending message...')
     message = client.messages.create(
         from_='whatsapp:+14155238886',
         body=body,

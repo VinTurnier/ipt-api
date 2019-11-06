@@ -19,8 +19,8 @@ services:
       context: ./server
       args:
         - SSH_PRIVATE_KEY=${SSH_PRIVATE_KEY}
-        - Twilio_Account_SID=${Twilio_Account_SID}
-        - Twilio_Auth_Token=${Twilio_Auth_Token}
+    env_file:
+      - ./web.env
     container_name: flask_server
     ports:
       - 6000:6000

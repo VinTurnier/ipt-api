@@ -1,8 +1,8 @@
 click
 Flask==1.1.1
 Flask-Cors==3.0.8
-opencv-contrib-python==3.3.0.10
-opencv-python==3.3.0.10
+opencv-contrib-python
+opencv-python
 PyMySQL==0.9.3
 requests==2.22.0
 scikit-image==0.15
