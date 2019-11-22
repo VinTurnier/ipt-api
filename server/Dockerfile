@@ -1,28 +1,8 @@
-FROM python:3.5 as intermediate
-
-WORKDIR /app 
-
-ARG SSH_PRIVATE_KEY
-
-RUN mkdir /root/.ssh/
-
-RUN echo "${SSH_PRIVATE_KEY}" >> /root/.ssh/id_rsa && chmod 600 /root/.ssh/id_rsa
-
-RUN touch /root/.ssh/known_hosts
-
-RUN ssh-keyscan github.com >> /root/.ssh/known_hosts
-
-COPY ./private_repo_requirements.txt /app/private_repo_requirements.txt
-
-RUN pip install -r private_repo_requirements.txt
-
 FROM python:3.5
 
 ARG Twilio_Account_SID
 
 ARG Twilio_Auth_Token
-
-COPY --from=intermediate /usr/local/lib/python3.5/site-packages/ /usr/local/lib/python3.5/site-packages/
 
 ENV PYTHONUNBUFFERED 1
 
