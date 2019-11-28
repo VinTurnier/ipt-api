@@ -28,7 +28,7 @@ def whatsapp():
         event['body'] = 'added new image to database'
         sendMessage.lambda_handler(event,{})
     else:
-        event['body'] = compare_status.get('body','Pa gen Reponse')
+        event['body'] = compare_status.get('body','No Reponse')
         sendMessage.lambda_handler(event,{})
     
     return 'Nothing'

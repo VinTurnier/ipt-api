@@ -8,10 +8,21 @@ import cv2
 import numpy as np
 
 # IPT Models Imports
-from ipt.db.images import Image
+from ipt.db import Image
 from ipt.db.base import session
 
 
+
+def get_key_points_and_descriptors(Image):
+    '''
+        Used to grab the image points and descriptors
+        Parameter: Image -> an Image object
+        Returns: kp_1 -> key points of the image
+                 des1 -> descriptor of that image
+    '''
+    orb = cv2.ORB_create()
+    kp_1, des1 = orb.detectAndCompute(image, None)
+    return kp_1, des1
 
 
 def is_url(url):
@@ -149,7 +160,7 @@ def compare(url,threshold):
                     'image_in_db':1,
                     'score':score,
                     'date_posted':image.timestamp,
-                    'body': 'Image sa gen {0}% chanse li te poste le {1}'.format(score*100,image.timestamp)
+                    'body': 'This image has {0}% possibility that it was posted on {1}'.format(score*100,image.timestamp)
                 }
 
     return {
@@ -160,9 +171,9 @@ def compare(url,threshold):
     
 def lambda_handler(event,context):
     '''
-    Parameters: event -> the event that is sent to the endpoint
-                context -> used for aws to specify lambda configuration in code
-    Return: results found in the compare method which is a dictionary
+        Parameters: event -> the event that is sent to the endpoint
+                    context -> used for aws to specify lambda configuration in code
+        Return: results found in the compare method which is a dictionary
     '''
     image_url = event.get('url')
     threshold = event.get('threshold')
