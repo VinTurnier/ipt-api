@@ -1,15 +1,23 @@
+# Standard Application Imports
+import re
+import requests
+
+# Third Party Imports
+from skimage.measure import compare_ssim
+import cv2
+import numpy as np
+
+# IPT Models Imports
 from ipt.db.images import Image
 from ipt.db.base import session
 
-from skimage.measure import compare_ssim
-# import argparse
-import cv2
-import requests
-import numpy as np
-import re
+
+
 
 def is_url(url):
-    ''' Checks to see if string is a url'''
+    ''' 
+        Checks to see if string is a url
+    '''
     url = re.findall('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\), ]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', url) 
     if url:
         return True
@@ -18,24 +26,42 @@ def is_url(url):
     
 
 def url_to_image(url):
+    '''
+        Turns a URL link image into an image, basically downloads the image from the internet
+        input: url string
+        return: image
+    '''
     resp = requests.get(url)
     image = np.asarray(bytearray(resp.content), dtype="uint8")
     image = cv2.imdecode(image, cv2.IMREAD_COLOR)
     return image
 
 def ssim_comparison(imageA,imageB):
+    '''
+    Structural SIMularity index or SSIM is a method used to compare simularities between two images.
+    is it used to measure the quality of an image.
+    Parameters: ImageA, ImageB
+            Takes in the two images that will be compared
+    Return: score
+            Which is the comparison score between 0 and 1 that returns from compare_ssim
+    '''
     grayA = cv2.cvtColor(imageA, cv2.COLOR_BGR2GRAY)
     grayB = cv2.cvtColor(imageB, cv2.COLOR_BGR2GRAY)
-
-    # 5. Compute the Structural Similarity Index (SSIM) between the two
-    #    images, ensuring that the difference image is returned
     score, diff = compare_ssim(grayA, grayB, full=True)
     diff = (diff * 255).astype("uint8")
 
-    # 6. You can print only the score if you want
     return score
 
 def sift_comparison(imageA,imageB):
+    '''
+    Scale Inveriant Feature Transform or SIFT is an image comparison algorithm that is currently patented,
+    and cannot be used in production. It is a feature detection algorithm in computer vision to detect and describe
+    local features in images. https://en.wikipedia.org/wiki/Scale-invariant_feature_transform
+    Parameters: imageA, imageB
+        Takes in the two images that will be used to make a comparison
+    return: score
+        Score is the a number between 0 and 1 that represents the similarity between the two images.
+    '''
     sift = cv2.xfeatures2d.SIFT_create()
     kp_1, desc_1 = sift.detectAndCompute(imageA, None)
     kp_2, desc_2 = sift.detectAndCompute(imageB, None)
@@ -55,24 +81,32 @@ def sift_comparison(imageA,imageB):
     else:
         number_keypoints = len(kp_2)
 
-    result = len(good_points) / number_keypoints
+    score = len(good_points) / number_keypoints
 
-    return result
+    return score
 
 def orb_comparison(imageA,imageB):
+    '''
+    Link: https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_feature2d/py_orb/py_orb.html
+    Oriented FAST and Rotated BRIEF or ORB ORB is basically a fusion of FAST keypoint 
+    detector and BRIEF descriptor with many modifications to enhance the performance
+    Parameters: imageA, imageB
+        Takes in the two images that will be compared
+    return: score
+        Score is the a number between 0 and 1 that represents the similarity between the two images.
+    '''
     orb = cv2.ORB_create()
-    kp_1, des1 = orb.detectAndCompute(imageA, None)
+    kp_1, des1 = orb.detectAndCompute(imageA, None) 
     kp_2, des2 = orb.detectAndCompute(imageB, None)
-   
-    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-    matches = bf.match(des1, des2)
-    matches = sorted(matches, key = lambda x: x.distance)
 
-    good = []
+    bf = cv2.BFMatcher()
+    matches = bf.knnMatch(des1, des2,k=2)
+
+    good_matches = []
     ratio = 0.75
-    for m in matches:
-        if m.distance < ratio:
-            good.append([m])
+    for m, n in matches:
+        if m.distance < ratio*n.distance: 
+            good_matches.append([m])
     
     number_keypoints = 0
 
@@ -81,20 +115,26 @@ def orb_comparison(imageA,imageB):
     else:
         number_keypoints = len(kp_2)
 
-    result = len(matches) / number_keypoints
+    score = len(good_matches) / number_keypoints
 
-    return result
+    return score
 
-def select_algo(imageA,imageB):
-    if imageA is None or imageB is None:
-        return 0
-
-    if imageA.shape == imageB.shape:
-        return ssim_comparison(imageA,imageB)
-    else:
-        return orb_comparison(imageA,imageB)
-
-def image_in_database(url,threshold):
+def compare(url,threshold):
+    '''
+        Compares the image that is received from whatsapp to those in the database
+        Parameters: url -> the url that is sent by whatsapp
+                    threshold -> the accepted threshold that has to be met for the comparison the return that the image
+                                is in the database
+        Return: if threshold is reached a dictionary with a 
+                                few keys -> statusCode: 200 means it received the data properly
+                                            image_in_db: 1 means that the image we are processing is actually in the dictionary
+                                            score: the value between 0 and 1 that was reached by comparing images
+                                            date_posted: the date that the image was in the database
+                                            body: the message that will be sent back to the end user
+                else  a dictionary with a few keys ->
+                                            statusCode: 200 marked as transaction completed
+                                            image_in_db: 0 means that the image was not found in the database base on the threshold
+    '''
     images = session.query(Image).all()
     for image in images:
         if is_url(image.url):
@@ -102,12 +142,12 @@ def image_in_database(url,threshold):
             imageA = url_to_image(imageA_url)
             imageB_url = url
             imageB = url_to_image(imageB_url)
-            score = select_algo(imageA,imageB)
+            score = orb_comparison(imageA,imageB)
             if score >= threshold:
                 return {
                     'statusCode':200,
                     'image_in_db':1,
-                    'ssim_score':score,
+                    'score':score,
                     'date_posted':image.timestamp,
                     'body': 'Image sa gen {0}% chanse li te poste le {1}'.format(score*100,image.timestamp)
                 }
@@ -119,9 +159,14 @@ def image_in_database(url,threshold):
 
     
 def lambda_handler(event,context):
+    '''
+    Parameters: event -> the event that is sent to the endpoint
+                context -> used for aws to specify lambda configuration in code
+    Return: results found in the compare method which is a dictionary
+    '''
     image_url = event.get('url')
     threshold = event.get('threshold')
-    result = image_in_database(image_url,threshold)
+    result = compare(image_url,threshold)
     return result
 
 
