@@ -17,8 +17,6 @@ services:
   web:
     build: 
       context: ./server
-      args:
-        - SSH_PRIVATE_KEY=${SSH_PRIVATE_KEY}
     env_file:
       - ./web.env
     container_name: flask_server
