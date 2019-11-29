@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 
 # IPT Models Imports
-from ipt.db import Image
+from ipt.db.images import Image
 from ipt.db.base import session
 
 
@@ -159,6 +159,7 @@ def compare(url,threshold):
                     'statusCode':200,
                     'image_in_db':1,
                     'score':score,
+                    'image_id':image.id,
                     'date_posted':image.timestamp,
                     'body': 'This image has {0}% possibility that it was posted on {1}'.format(score*100,image.timestamp)
                 }

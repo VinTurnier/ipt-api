@@ -4,12 +4,19 @@ import os
 # Third Party Imports
 from twilio.rest import Client
 
+# IPT Models Imports
+from ipt.db.images import Image
+from ipt.db.base import session
 
 account_sid = os.environ.get('Twilio_Account_SID')
 auth_token = os.environ.get('Twilio_Auth_Token')
 
 client = Client(account_sid,auth_token)
 
+def num_of_matches(image_id):
+    session.query(Image).filter_by(id=image_id).update({'num_of_matches':Image.num_of_matches+1})
+    session.commit()
+    
 
 def create_message(to,body):
     '''
@@ -34,5 +41,8 @@ def lambda_handler(event,context):
     '''
     body = event.get('body',None)
     to = event.get('to',None)
+    image_id = event.get('image_id',None)
+    if image_id:
+        num_of_matches(image_id)
     message = create_message(to,body)
     return message

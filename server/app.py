@@ -29,6 +29,7 @@ def whatsapp():
         sendMessage.lambda_handler(event,{})
     else:
         event['body'] = compare_status.get('body','No Reponse')
+        event['image_id'] = compare_status.get('image_id', -1)
         sendMessage.lambda_handler(event,{})
     
     return 'Nothing'

@@ -1,5 +1,5 @@
 # IPT Models Imports
-from ipt.db import Image
+from ipt.db.images import Image
 from ipt.db.base import session
 
 def add_image(url):
@@ -18,7 +18,7 @@ def add_image(url):
                 'message':'No URL was given'
             }
         }
-    image = Image(url=url)
+    image = Image(url=url,num_of_matches=0)
     session.add(image)
     session.commit()
     return {
