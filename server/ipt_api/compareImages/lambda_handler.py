@@ -1,16 +1,57 @@
 # Standard Application Imports
 import re
 import requests
+import datetime
+import pickle
 
 # Third Party Imports
 from skimage.measure import compare_ssim
 import cv2
 import numpy as np
 
-# IPT Models Imports
-from ipt.db.images import Image
-from ipt.db.base import session
 
+# IPT Models Imports
+from ipt.db import Image
+from ipt.db import session
+
+def serializing_key_point(keypoint):
+    pass
+
+def deserializing_key_point(keypoint):
+    pass
+
+def serializing_descriptor(descriptor):
+    pass
+
+def deserializing_descriptor(descriptor):
+    pass
+
+def file_name(bucket_name,length,timestamp):
+    ''' Creates a file name given a bucket_name, length and timestamp
+
+    :param bucket_name: key_point, or descriptor will be prefixed to the fi
+    :param length: the lenght of the array object
+    :param timestamp: the time at which this file was created
+    :return: file_name
+    '''
+    filename = f"{bucket_name}_{length}_{timestamp}.obj"
+    return filename
+
+def make_obj_file(bucket_name,data):
+    ''' Populates .obj file using python pickel module
+
+    :param filename: name of file to write to
+    :param data: the data that will be stored in the file
+    :return: True if file was written successfully, else returns False
+    '''
+    length = len(data)
+    now = datetime.datetime.now()
+    timestamp = now.strftime("%m%d%Y%H%M%S")
+    filename = file_name(bucket_name,length,timestamp)
+    with open(filename,'wb') as fp:
+        for value in data:
+            pickle.dump(value,fp)
+    pass 
 
 
 def get_key_points_and_descriptors(Image):
@@ -185,4 +226,7 @@ def lambda_handler(event,context):
 if __name__=="__main__":
     imageA = url_to_image('https://api.twilio.com/2010-04-01/Accounts/ACfcd00e1e9a29eab742a84b432485fe39/Messages/MM135aec9a461670d3e45aa9e7e8f8550d/Media/MEfe4c23bdee6b45c6cf36827cb345fd99')
     imageB = url_to_image('https://api.twilio.com/2010-04-01/Accounts/ACfcd00e1e9a29eab742a84b432485fe39/Messages/MM7194f3f4c29ca71cd6fa005f8afa976f/Media/MEdb0e5d2a44745462dd7125c7e5e60289')
-    print(sift_comparison(imageA,imageB))
+    orb = cv2.ORB_create()
+    kp_1, des1 = orb.detectAndCompute(imageA, None)
+    make_obj_file("key_points",kp_1)
+
