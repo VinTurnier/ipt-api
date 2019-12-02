@@ -4,11 +4,6 @@ services:
   db:
     build: ./database
     container_name: ipt_local_db
-    environment:
-      MYSQL_DATABASE: 'ipt_local'
-      MYSQL_USER: 'ipt_user'
-      MYSQL_PASSWORD: 'password'
-      MYSQL_ROOT_PASSWORD: 'password'
     ports:
       - 3306:3306
     expose:

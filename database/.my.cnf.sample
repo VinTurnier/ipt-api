@@ -1,0 +1,9 @@
+[clientlocal]
+host=localhost
+user=root
+password=password
+
+[clientproduction]
+host=
+user=
+password=
