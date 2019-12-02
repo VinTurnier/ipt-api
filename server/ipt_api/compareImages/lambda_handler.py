@@ -2,29 +2,78 @@
 import re
 import requests
 import datetime
-import pickle
+import json
+import logging
+import subprocess
+import time
 
 # Third Party Imports
 from skimage.measure import compare_ssim
 import cv2
 import numpy as np
+import boto3
+from botocore.exceptions import ClientError
 
 
 # IPT Models Imports
 from ipt.db import Image
 from ipt.db import session
 
-def serializing_key_point(keypoint):
-    pass
 
-def deserializing_key_point(keypoint):
-    pass
+class KeyPointDescriptorEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, cv2.KeyPoint):
+            return serialize_key_point(obj)
+        elif isinstance(obj,np.ndarray):
+            return serialize_descriptor(obj)
+        return json.JSONEncoder.default(self, obj)
 
-def serializing_descriptor(descriptor):
-    pass
+def serialize_key_point(keypoint):
+    ''' Turns keypoint object to a dictianory
 
-def deserializing_descriptor(descriptor):
-    pass
+    :params keypoint: cv2.Keypoint object
+    :return: keypoint_dictionary
+    '''
+    keypoint_dictionary = {
+        "__class__": "KeyPoints",
+        "pt": keypoint.pt,
+        "size":keypoint.size,
+        "angle":keypoint.angle,
+        "response": keypoint.response,
+        "octave": keypoint.octave,
+        "class_id": keypoint.class_id,
+    }
+    return keypoint_dictionary
+
+
+def deserialize_key_point(keypoint):
+    ''' Turns a dictionary of key points to a keypoint objects
+
+    :params keypoint: a dictionary of keypoints
+    :return: keypoint object
+
+    '''
+    _keypoint = cv2.KeyPoint(x=keypoint['pt'][0],y=keypoint['pt'][1],_size=keypoint['size'], _angle=keypoint['angle'], 
+                            _response=keypoint['response'], _octave=keypoint['octave'], _class_id=keypoint['class_id'])
+    return _keypoint
+
+def serialize_descriptor(descriptor):
+    ''' Turns descript 2d numpy array to a list
+
+    :params descriptor: takes in a descriptor numpy 2d array
+    :return: a descriptor dictionary with the 2d array as a list
+    '''
+    list_descriptor = descriptor.tolist()
+    return list_descriptor
+
+def deserialize_descriptor(descriptor):
+    ''' Turns a descriptor dictionary to a numpy 2d array
+
+    :params descriptor: a dictionary descriptor with a 2d array a value
+    :return: a numpy 2d array
+    '''
+    _descriptor = np.array(descriptor)
+    return _descriptor
 
 def file_name(bucket_name,length,timestamp):
     ''' Creates a file name given a bucket_name, length and timestamp
@@ -34,24 +83,83 @@ def file_name(bucket_name,length,timestamp):
     :param timestamp: the time at which this file was created
     :return: file_name
     '''
-    filename = f"{bucket_name}_{length}_{timestamp}.obj"
+    filename = f"{bucket_name}_{length}_{timestamp}.json"
     return filename
 
-def make_obj_file(bucket_name,data):
+def write_json_file(bucket_name,data):
     ''' Populates .obj file using python pickel module
 
     :param filename: name of file to write to
     :param data: the data that will be stored in the file
-    :return: True if file was written successfully, else returns False
+    :return: filename 
     '''
-    length = len(data)
+    length = len(data['keypoints'])
     now = datetime.datetime.now()
     timestamp = now.strftime("%m%d%Y%H%M%S")
     filename = file_name(bucket_name,length,timestamp)
-    with open(filename,'wb') as fp:
-        for value in data:
-            pickle.dump(value,fp)
-    pass 
+    with open(filename,'w') as fp:
+        json.dump(data,fp,cls=KeyPointDescriptorEncoder)
+
+    return filename 
+
+def read_json_file(filename):
+    ''' Read keypoints_descriptor json file and deserializes keypoints and descriptor
+
+    :params filename: s3 file name
+    :returns: keypoints, and descriptor
+    '''
+
+    with open(filename) as json_file:
+        data = json.load(json_file)
+        keypoints = []
+        for p in data['keypoints']:
+            keypoints.append(deserialize_key_point(p))
+        descriptor = deserialize_descriptor(data['descriptor'])
+        return keypoints, descriptor
+
+def get_keypoints_length(filename):
+    ''' Takes the file name and return the length of the keypoints
+
+    :params filename: name of file from database
+    :return: length of keypoints which is found in the file name
+    '''
+    filename_split = filename.split('_')
+    length = filename_split[2]
+    return length
+
+def upload_file(file_name, bucket, object_name=None):
+    """Upload a file to an S3 bucket
+
+    :param file_name: File to upload
+    :param bucket: Bucket to upload to
+    :param object_name: S3 object name. If not specified then file_name is used
+    :return: True if file was uploaded, else False
+    """
+
+    # If S3 object_name was not specified, use file_name
+    if object_name is None:
+        object_name = file_name
+
+    # Upload the file
+    s3_client = boto3.client('s3')
+    try:
+        response = s3_client.upload_file(file_name, bucket, 'keypoints_descriptor/'+file_name)
+    except ClientError as e:
+        logging.error(e)
+        return False
+    return True
+
+def read_from_s3_ipt_bucket(bucket_name,file_path):
+    ''' Read file directly from S3 bucket without downloading
+
+    :param bucket_name: the bucket to read from
+    :param file_path: the S3 key to read from
+    :return: json load data that is read from S3
+    '''
+    
+    client = boto3.client('s3')
+    obj = client.get_object(Bucket=bucket_name, Key=file_path)
+    return json.load(obj['Body'])
 
 
 def get_key_points_and_descriptors(Image):
@@ -224,9 +332,25 @@ def lambda_handler(event,context):
 
 
 if __name__=="__main__":
-    imageA = url_to_image('https://api.twilio.com/2010-04-01/Accounts/ACfcd00e1e9a29eab742a84b432485fe39/Messages/MM135aec9a461670d3e45aa9e7e8f8550d/Media/MEfe4c23bdee6b45c6cf36827cb345fd99')
-    imageB = url_to_image('https://api.twilio.com/2010-04-01/Accounts/ACfcd00e1e9a29eab742a84b432485fe39/Messages/MM7194f3f4c29ca71cd6fa005f8afa976f/Media/MEdb0e5d2a44745462dd7125c7e5e60289')
+    start = time.time()
+    # imageA = url_to_image('https://api.twilio.com/2010-04-01/Accounts/ACfcd00e1e9a29eab742a84b432485fe39/Messages/MM135aec9a461670d3e45aa9e7e8f8550d/Media/MEfe4c23bdee6b45c6cf36827cb345fd99')
+    imageA = url_to_image('https://api.twilio.com/2010-04-01/Accounts/ACfcd00e1e9a29eab742a84b432485fe39/Messages/MM7194f3f4c29ca71cd6fa005f8afa976f/Media/MEdb0e5d2a44745462dd7125c7e5e60289')
     orb = cv2.ORB_create()
     kp_1, des1 = orb.detectAndCompute(imageA, None)
-    make_obj_file("key_points",kp_1)
-
+    elapsed_time_fl = (time.time() - start)
+    print("Key Point & Descriptor time: "+str(elapsed_time_fl))
+    data = {
+        "keypoints": kp_1,
+        "descriptor": des1
+    }
+    start = time.time()
+    filename = write_json_file("keypoints_descriptors",data)
+    upload_file(filename,'ipt-staging')
+    subprocess.call(f"rm {filename}",shell=True)
+    elapsed_time_fl = (time.time() - start)
+    print("Upload to S3: "+str(elapsed_time_fl))
+    start = time.time()
+    data = read_from_s3_ipt_bucket('ipt-staging','keypoints_descriptor/keypoints_descriptors_500_12012019174936.json')
+    elapsed_time_fl = (time.time() - start)
+    print("Download from S3: "+str(elapsed_time_fl))
+    # read_json_file('ipt_key_points_2_12012019163238.json')

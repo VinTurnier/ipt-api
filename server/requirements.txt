@@ -8,4 +8,5 @@ requests==2.22.0
 scikit-image==0.15
 SQLAlchemy==1.3.10
 twilio==6.32.0
+boto3==1.10.28
 git+https://github.com/VinTurnier/ipt-models.git@master#egg=ipt

@@ -18,7 +18,7 @@ def add_image(url):
                 'message':'No URL was given'
             }
         }
-    image = Image(url=url,num_of_matches=0)
+    image = Image(url=url,num_of_matches=0,key_points='s3_bucket_location',descriptors='s3_bucket_location')
     session.add(image)
     session.commit()
     return {
