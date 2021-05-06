@@ -1,6 +1,6 @@
 click
 Flask==1.1.1
-Flask-Cors==3.0.8
+Flask-Cors==3.0.9
 opencv-contrib-python
 opencv-python
 PyMySQL==0.9.3
